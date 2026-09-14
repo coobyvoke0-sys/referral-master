@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Master Engine</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        h2 { color: #00ffcc; margin-top: 0; font-size: 22px; text-align: center;}
+        label { display: block; margin: 10px 0 5px; font-weight: bold; font-size: 14px;}
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #00ffcc;
+            color: #121212;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+        button:hover { background: #00cc99; }
+        .pay-btn { background: #ffcc00; color: #121212; }
+        .pay-btn:hover { background: #e6b800; }
+        .response-box {
+            margin-top: 15px;
+            padding: 12px;
+            background: #252525;
+            border-left: 4px solid #00ffcc;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            display: none;
+        }
+        .instructions {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ffcc00;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. REGISTRATION SECTION -->
+    <div class="container">
+        <h2>🔗 Register Account</h2>
+        <form id="regForm">
+            <label>Full Name</label>
+            <input type="text" id="regName" placeholder="e.g. John Doe" required>
+            
+            <label>Email Address</label>
+            <input type="email" id="regEmail" placeholder="name@domain.com" required>
+            
+            <label>Secure Password</label>
+            <input type="password" id="regPassword" placeholder="••••••••" required>
+            
+            <label>Referral Code (Optional)</label>
+            <input type="text" id="regRef" placeholder="e.g. ALEX9613">
+            
+            <button type="submit">Create Account</button>
+        </form>
+        <div id="regResponse" class="response-box"></div>
+    </div>
+
+    <!-- 2. NEW PAYMENT ACTIVATION SECTION -->
+    <div class="container" style="border: 1px solid #ffcc00;">
+        <h2>💳 Activate Account (M-PESA)</h2>
+        <div class="instructions">
+            Pay the registration fee of <strong>KES 100</strong> to Paybill/Till, then copy your M-PESA confirmation message receipt code below.
+        </div>
+        <form id="payForm">
+            <label>User ID</label>
+            <input type="text" id="payUserId" placeholder="Paste User ID from registration step" required>
+            
+            <label>M-PESA Receipt Number</label>
+            <input type="text" id="payReceipt" placeholder="e.g. SKL12M3XYZ" required>
+            
+            <button type="submit" class="pay-btn">Submit Payment Verification</button>
+        </form>
+        <div id="payResponse" class="response-box" style="border-left-color: #ffcc00;"></div>
+    </div>
+
+    <!-- 3. DASHBOARD VIEW SECTION -->
+    <div class="container">
+        <h2>📊 View Referral Stats</h2>
+        <label>Enter Your User ID</label>
+        <input type="text" id="dashId" placeholder="Paste your MongoDB ID here">
+        <button id="btnViewDash">Fetch My Dashboard</button>
+        <div id="dashResponse" class="response-box"></div>
+    </div>
+
+    <script>
+        // Handle User Signup
+        document.getElementById('regForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resBox = document.getElementById('regResponse');
+            resBox.style.display = "block";
+            resBox.innerText = "Processing registration request...";
+
+            const payload = {
+                name: document.getElementById('regName').value,
+                email: document.getElementById('regEmail').value,
+                password: document.getElementById('regPassword').value,
+                referredByCode: document.getElementById('regRef').value || null
+            };
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                resBox.innerText = JSON.stringify(data, null, 2);
+                
+                // Automatically copy the user ID down to the payment form for convenience
+                if (data.userId) {
+                    document.getElementById('payUserId').value = data.userId;
+                }
+            } catch (err) {
+                resBox.innerText = "Network Error: Could not connect to API server";
+            }
+        });
+
+        // Handle Payment Activation Submission
+        document.getElementById('payForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resBox = document.getElementById('payResponse');
+            resBox.style.display = "block";
+            resBox.innerText = "Verifying payment code with system logs...";
+
+            const payload = {
+                userId: document.getElementById('payUserId').value.trim(),
+                mpesaReceipt: document.getElementById('payReceipt').value.trim()
+            };
+
+            try {
+                const response = await fetch('/api/verify-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                resBox.innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                resBox.innerText = "Network Error: Verification system offline";
+            }
+        });
+
+        // Handle Dashboard Lookup Queries
+        document.getElementById('btnViewDash').addEventListener('click', async () => {
+            const userId = document.getElementById('dashId').value.trim();
+            const resBox = document.getElementById('dashResponse');
+            if(!userId) return alert("Please paste a user ID string first!");
+
+            resBox.style.display = "block";
+            resBox.innerText = "Fetching your live metrics...";
+
+            try {
+                const response = await fetch(`/api/dashboard/${userId}`);
+                const data = await response.json();
+                resBox.innerText = JSON.stringify(data, null, 2);
+            } catch (err) {
+                resBox.innerText = "Network Error: Failed to gather stats";
+            }
+        });
+    </script>
+</body>
+</html>
+
